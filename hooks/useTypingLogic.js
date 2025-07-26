@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { calculateWPM, calculateAccuracy } from '@/utils/helpers';
+import { generateWords } from '@/utils/words';
 
 const initialTypingState = {
   text: '',
@@ -12,67 +13,48 @@ const initialTypingState = {
   correctCharCount: 0,
 };
 
-export default function useTypingLogic() {
+export default function useTypingLogic({ mode, code, lang, time }) {
   const [state, setState] = useState(initialTypingState);
   const intervalRef = useRef(null);
+  const timerRef = useRef(null);
 
-  const randomLetter = () => {
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-  return letters[Math.floor(Math.random() * letters.length)];
-};
-
-const startsWith = Math.random() < 0.5 ? randomLetter() : undefined; // 50% chance to use a random letter
-
-
-  const fetchWordsFromAPI = async () => {
+  const generateTypingText = useCallback(() => {
     try {
-      const res = await fetch('/api/words/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          regex: '^[aeiou]\\w{4,8}$',
-          minLength: 4,
-          maxLength: 8,
-          startsWith,
-          count: 200,
-          random: true
-        })
+      return generateWords({
+        mode,
+        code,
+        lang,
+        count: 200,
+        random: true
       });
-
-      const data = await res.json();
-if (!data.words || !Array.isArray(data.words) || data.words.length === 0) {
-  console.warn('No matching words returned:', data);
-  return 'loading error'; // or any fallback text
-}
-
-
-      return data.words.join(' ');
     } catch (error) {
-      console.error('Failed to fetch words:', error);
-      return '';
+      console.error('Error generating words:', error);
+      return 'The quick brown fox jumps over the lazy dog. A journey of a thousand miles begins with a single step.';
     }
-  };
+  }, [mode, code, lang]);
 
-  const initTest = useCallback(async () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-
-    const newText = await fetchWordsFromAPI();
-
-    setState({
-      ...initialTypingState,
-      text: newText,
-    });
-  }, []);
+  const initTest = useCallback(() => {
+    try {
+      const text = generateTypingText();
+      setState(prev => ({ ...prev, text, isTyping: true, startTime: new Date() }));
+    } catch (error) {
+      console.error('Error initializing test:', error);
+      setState(prev => ({ ...prev, text: 'An error occurred while loading the text.' }));
+    }
+  }, [generateTypingText]);
 
   const resetTest = useCallback(() => {
-    initTest();
-  }, [initTest]);
+    setState(initialTypingState);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
 
   const handleKeyDown = useCallback((e) => {
     if (state.endTime) return;
 
     if (e.key === ' ' && e.target === document.body) e.preventDefault();
 
+    // Start typing on first character key press
     if (!state.isTyping && e.key.length === 1 && e.key !== ' ') {
       setState(prev => ({
         ...prev,
@@ -81,6 +63,7 @@ if (!data.words || !Array.isArray(data.words) || data.words.length === 0) {
       }));
     }
 
+    // Handle backspace
     if (e.key === 'Backspace') {
       setState(prev => {
         const newTypedText = prev.typedText.slice(0, -1);
@@ -105,29 +88,33 @@ if (!data.words || !Array.isArray(data.words) || data.words.length === 0) {
       return;
     }
 
-    if (e.key.length === 1) {
-      const expectedChar = state.text[state.currentCharIndex];
+    // Handle space and character keys
+    if (e.key === ' ' || e.key.length === 1) {
+      const text = state.text;
+      const typedText = state.typedText;
+      const currentCharIndex = state.currentCharIndex;
+
+      const newTypedText = typedText + e.key;
+      const newCharIndex = currentCharIndex + 1;
+      const expectedChar = text[currentCharIndex];
       const isCorrect = e.key === expectedChar;
+      const newCorrectCharCount = isCorrect ? currentCharIndex + 1 : state.correctCharCount;
 
       setState(prev => {
         const newErrors = { ...prev.errors };
         if (!isCorrect) {
-          newErrors[prev.currentCharIndex] = true;
+          newErrors[currentCharIndex] = true;
         }
-
-        const newTypedText = prev.typedText + e.key;
-        const newCurrentCharIndex = prev.currentCharIndex + 1;
-        const newCorrectCharCount = prev.correctCharCount + (isCorrect ? 1 : 0);
 
         const newState = {
           ...prev,
           typedText: newTypedText,
-          currentCharIndex: newCurrentCharIndex,
+          currentCharIndex: newCharIndex,
           errors: newErrors,
           correctCharCount: newCorrectCharCount,
         };
 
-        if (newCurrentCharIndex === state.text.length) {
+        if (newCharIndex === text.length) {
           newState.endTime = new Date();
           newState.isTyping = false;
           if (intervalRef.current) clearInterval(intervalRef.current);
@@ -136,7 +123,30 @@ if (!data.words || !Array.isArray(data.words) || data.words.length === 0) {
         return newState;
       });
     }
-  }, [state]);
+  }, [state.endTime, state.isTyping, state.text, state.errors, state.currentCharIndex, state.correctCharCount]);
+
+  useEffect(() => {
+    if (state.isTyping && time) {
+      const minutes = parseInt(time);
+      const milliseconds = minutes * 60 * 1000;
+      
+      if (timerRef.current) clearTimeout(timerRef.current);
+      
+      timerRef.current = setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          endTime: new Date(),
+          isTyping: false,
+        }));
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      }, milliseconds);
+    }
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [state.isTyping, time]);
 
   const wpm = state.startTime && state.endTime
     ? calculateWPM(state.correctCharCount, state.startTime, state.endTime)
@@ -147,10 +157,27 @@ if (!data.words || !Array.isArray(data.words) || data.words.length === 0) {
     : 0;
 
   useEffect(() => {
+    if (state.isTyping && time) {
+      const minutes = parseInt(time);
+      const milliseconds = minutes * 60 * 1000;
+      
+      if (timerRef.current) clearTimeout(timerRef.current);
+      
+      timerRef.current = setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          endTime: new Date(),
+          isTyping: false,
+        }));
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      }, milliseconds);
+    }
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, []);
+  }, [state.isTyping, time]);
 
   return {
     ...state,
