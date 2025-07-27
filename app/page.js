@@ -632,6 +632,7 @@ export default function HomePage() {
           <Result
           // result={resultDetails}
           onRestart={handleRestart}
+          result={resultDetails}
         />
         
         )}
