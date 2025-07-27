@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Header from "@/components/Header";
+import { generateRandomWords, getTargetWordCount } from "@/utils/wordGenerator";
 import TypingArea from "@/components/TypingArea";
 import StatsDisplay from "@/components/StatsDisplay";
 import CommandBox from "@/components/CommandBox";
@@ -20,6 +21,7 @@ export default function HomePage() {
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
   const [isTypingDone, setIsTypingDone] = useState(false);
+  const testIntervalRef = useRef(null);
   const [typingSettings, setTypingSettings] = useState({
     language: 'English',
     punctuation: true,
@@ -29,57 +31,129 @@ export default function HomePage() {
     typingOption: '',
     quoteSize: ''
   });
+
+  const handleModeChange = useCallback((newModes) => {
+    console.log('New typing settings:', newModes);
+    setTypingSettings(newModes);
+  }, []);
   const [wordList, setWordList] = useState([]);
   const [timeLeft, setTimeLeft] = useState(null);
   const [targetWordCount, setTargetWordCount] = useState(null);
   const timerRef = useRef(null);
   const inputRef = useRef(null);
+  const [resultDetails, setResultDetails] = useState({
+    wpm: 0,
+    accuracy: 100,
+    time: null,
+    words: null,
+    mode: 'Normal,English',
+    testDuration: 0
+  });
+
+
+  // Reset test and regenerate words when typing settings change
+  useEffect(() => {
+    const regenerateWords = async () => {
+      try {
+        const wordCount = getTargetWordCount(typingSettings);
+        setTargetWordCount(wordCount);
+        
+        if (typingSettings.typingCount === 'Time') {
+          setTimeLeft(parseInt(typingSettings.typingOption) || 30);
+        }
+        
+        // Force a re-fetch of words
+        const newWords = await fetchWords(typingSettings.language, typingSettings.codeLanguage);
+        const selectedWords = generateRandomWords(newWords, wordCount, true);
+        setText(selectedWords.join(' '));
+        
+        // Reset test state
+        setTypedText('');
+        setCurrentCharIndex(0);
+        setErrors([]);
+        setStartTime(null);
+        setEndTime(null);
+        setIsTyping(false);
+        setIsTypingDone(false);
+        setWpm(0);
+        setAccuracy(100);
+        
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      } catch (error) {
+        console.error('Error regenerating words:', error);
+      }
+    };
+    
+    regenerateWords();
+  }, [typingSettings.typingCount, typingSettings.typingOption, typingSettings.language, typingSettings.codeLanguage]);
+
+  // Function to fetch words based on language and code language
+  const fetchWords = async (language, codeLanguage = '') => {
+    try {
+      let wordFilePath = '';
+      
+      if (language === 'English') {
+        wordFilePath = '/words/English/common3k.txt';
+      } else if (language === 'Bangla') {
+        wordFilePath = '/words/Bangla/ShortWordsList.txt';
+      } else if (language === 'Code' && codeLanguage) {
+        const codeLanguageMap = {
+          'C/C++': '/words/Coding/c_cpp_words.txt',
+          'Python': '/words/Coding/python_words.txt',
+          'JavaScript': '/words/Coding/javascript_words.txt',
+          'Java': '/words/Coding/java_words.txt',
+          'Flutter': '/words/Coding/dart_words.txt',
+        };
+        wordFilePath = codeLanguageMap[codeLanguage] || '/words/English/common3k.txt';
+      } else {
+        wordFilePath = '/words/English/common3k.txt';
+      }
+
+      const response = await fetch(wordFilePath);
+      if (!response.ok) {
+        throw new Error(`Failed to load words from ${wordFilePath}`);
+      }
+      
+      const text = await response.text();
+      return text.split(/\s+/).filter(word => word.trim() !== '');
+    } catch (error) {
+      console.error('Error loading words:', error);
+      // Return a default set of words if loading fails
+      return ['the', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog'];
+    }
+  };
 
   // Load words based on language and code language
   useEffect(() => {
     const loadWords = async () => {
       try {
-        let wordFilePath = '';
+        const newWords = await fetchWords(typingSettings.language, typingSettings.codeLanguage);
+        setWordList(newWords);
         
-        if (typingSettings.language === 'English') {
-          wordFilePath = '/words/English/common3k.txt';
-        } else if (typingSettings.language === 'Bangla') {
-          wordFilePath = '/words/Bangla/ShortWordsList.txt';
-        } else if (typingSettings.language === 'Code' && typingSettings.codeLanguage) {
-          const codeLanguageMap = {
-            'C/C++': '/words/Coding/c_cpp_words.txt',
-            'Python': '/words/Coding/python_words.txt',
-            'Flutter': '/words/Coding/flutter_dart_words.txt',
-            'JavaScript': '/words/Coding/javascript_words.txt',
-            'Java': '/words/Coding/java_words.txt'
-          };
-          wordFilePath = codeLanguageMap[typingSettings.codeLanguage] || '';
-        }
-
-        if (wordFilePath) {
-          const response = await fetch(wordFilePath);
-          if (!response.ok) throw new Error(`Failed to load word list: ${response.status}`);
-          
-          const text = await response.text();
-          const words = text.split(/\s+/).filter(word => word.trim() !== '');
-          setWordList(words);
-          
-          // If we have words, update the text with a new set of words
-          if (words.length > 0) {
-            generateNewText(words);
-          }
+        // Generate initial text
+        const wordCount = getTargetWordCount(typingSettings);
+        const selectedWords = generateRandomWords(newWords, wordCount, true);
+        setText(selectedWords.join(' '));
+        setTargetWordCount(wordCount);
+        
+        if (typingSettings.typingCount === 'Time') {
+          setTimeLeft(parseInt(typingSettings.typingOption) || 30);
         }
       } catch (error) {
         console.error('Error loading word list:', error);
         // Fallback to default words if there's an error
         const defaultWords = ["the", "be", "to", "of", "and", "a", "in", "that", "have", "I"];
         setWordList(defaultWords);
-        generateNewText(defaultWords);
+        const wordCount = getTargetWordCount(typingSettings);
+        const selectedWords = generateRandomWords(defaultWords, wordCount, true);
+        setText(selectedWords.join(' '));
       }
     };
 
     loadWords();
-  }, [typingSettings.language, typingSettings.codeLanguage]);
+  }, [typingSettings.language, typingSettings.codeLanguage, typingSettings.typingCount, typingSettings.typingOption]);
 
   // Clean up timer on unmount
   useEffect(() => {
@@ -90,14 +164,27 @@ export default function HomePage() {
     };
   }, []);
 
+  // Update timeLeft when typing option changes in Time mode
+  useEffect(() => {
+    if (typingSettings.typingCount === 'Time' && !isTyping) {
+      const timeLimit = parseInt(typingSettings.typingOption) || 30;
+      setTimeLeft(timeLimit);
+    }
+  }, [typingSettings.typingOption, typingSettings.typingCount, isTyping]);
+
+
+
   // Start or stop timer based on typing state and settings
   useEffect(() => {
-    // Clear any existing timer
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    // Clear any existing timers
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (testIntervalRef.current) clearInterval(testIntervalRef.current);
+    
+    timerRef.current = null;
+    testIntervalRef.current = null;
 
+    // No test data tracking needed
+    
     // Only set up a new timer if we're in time mode and typing
     if (isTyping && typingSettings.typingCount === 'Time') {
       const timeLimit = parseInt(typingSettings.typingOption) || 30;
@@ -137,26 +224,37 @@ export default function HomePage() {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      if (testIntervalRef.current) {
+        clearInterval(testIntervalRef.current);
+        testIntervalRef.current = null;
+      }
     };
   }, [isTyping, typingSettings.typingCount, typingSettings.typingOption]);
 
-  // Check word count for word-based tests
+  // Track word count for word-based tests
   useEffect(() => {
     if (!isTyping || typingSettings.typingCount !== 'Words' || !targetWordCount) return;
     
-    // Count words more accurately, handling multiple spaces
+    // Word tracking without data collection
+    
+    // Count words more accurately, handling multiple spaces and newlines
     const currentWordCount = typedText.trim() === '' ? 0 : typedText.trim().split(/\s+/).length;
     
-    if (currentWordCount >= targetWordCount) {
-      // Get the first N words from the original text
-      const targetWords = text.split(/\s+/).slice(0, targetWordCount);
-      const targetText = targetWords.join(' ');
-      
+    // Get the actual words from the original text to compare against
+    const targetWords = text.split(/\s+/).slice(0, targetWordCount);
+    const targetText = targetWords.join(' ');
+    
+    // Check if we've typed all the target words
+    const userWords = typedText.trim().split(/\s+/);
+    const hasTypedAllWords = userWords.length >= targetWordCount && 
+                           userWords.slice(0, targetWordCount).join(' ') === 
+                           targetWords.slice(0, Math.min(targetWordCount, userWords.length)).join(' ');
+    
+    if (hasTypedAllWords) {
       // Update the displayed text to exactly match the target word count
       setText(targetText);
       
       // Truncate the user's input to match the target word count
-      const userWords = typedText.trim().split(/\s+/);
       if (userWords.length > targetWordCount) {
         const truncatedText = userWords.slice(0, targetWordCount).join(' ');
         setTypedText(truncatedText);
@@ -169,37 +267,81 @@ export default function HomePage() {
     }
   }, [typedText, isTyping, typingSettings.typingCount, targetWordCount, text]);
 
-  const generateNewText = (words) => {
-    if (!words || words.length === 0) return;
-    
-    // Generate text based on the current typing settings
-    let wordCount = 50; // Default word count
-    
-    if (typingSettings.typingCount === 'Words') {
-      const target = parseInt(typingSettings.typingOption);
-      if (isNaN(target) || target < 1) {
-        wordCount = 50; // Fallback to default if invalid
-      } else {
-        wordCount = Math.max(10, target); // Ensure minimum of 10 words
-      }
-      setTargetWordCount(wordCount);
-    } else if (typingSettings.typingCount === 'Time') {
-      // For time-based tests, generate enough words for the time limit
-      const timeLimit = parseInt(typingSettings.typingOption) || 30;
-      // Estimate words per minute and generate enough words
-      const estimatedWPM = 40; // Average typing speed
-      wordCount = Math.max(30, Math.ceil((estimatedWPM * timeLimit) / 60));
-      setTimeLeft(timeLimit);
-    } else if (typingSettings.typingCount === 'Quote') {
-      // For quotes, we'll handle this differently if needed
-      wordCount = 30; // Default for quotes
-    }
+  //New Function to track and save typing progress
+  const trackTypingProgress = () => {
+    const now = new Date();
+    const elapsedTimeInSeconds = (now - startTime) / 1000;
+    const elapsedTimeInMinutes = elapsedTimeInSeconds / 60;
 
-    // Select random words from the word list
-    const selectedWords = [];
-    for (let i = 0; i < wordCount && words.length > 0; i++) {
-      const randomIndex = Math.floor(Math.random() * words.length);
-      selectedWords.push(words[randomIndex]);
+    const totalChars = typedText.length;
+    const totalWords = typedText.trim().split(/\s+/).length;
+
+    const totalErrorChars = errors.filter(Boolean).length;
+    const correctChars = totalChars - totalErrorChars;
+
+    const rawWPM = Math.round((totalChars / 5) / Math.max(elapsedTimeInMinutes, 0.01));
+    const adjustedWPM = Math.max(0, rawWPM - Math.round(totalErrorChars / Math.max(elapsedTimeInMinutes * 60, 1)));
+    const accuracyPercent = totalChars > 0 ? ((correctChars / totalChars) * 100).toFixed(1) : '100.0';
+
+    const newEntry = {
+      timestamp: Date.now(),
+      mode: typingSettings.typingCount,
+      duration: typingSettings.typingOption,
+      wpm: adjustedWPM,
+      rawWPM: rawWPM,
+      accuracy: parseFloat(accuracyPercent),
+      errors: totalErrorChars,
+      wordsTyped: totalWords,
+      charactersTyped: totalChars,
+      elapsedTime: elapsedTimeInSeconds.toFixed(2),
+    };
+
+    const prevData = JSON.parse(localStorage.getItem('typing_progress')) || [];
+    localStorage.setItem('typing_progress', JSON.stringify([...prevData, newEntry]));
+  };
+
+  // Track progress for time-based tests
+  useEffect(() => {
+    if (isTyping && typingSettings.typingCount === 'Time') {
+      testIntervalRef.current = setInterval(() => {
+        trackTypingProgress();
+      }, 1000); // track every second
+
+      return () => clearInterval(testIntervalRef.current);
+    }
+  }, [isTyping, typedText]);
+
+  // Track progress for word-based tests
+  useEffect(() => {
+    if (!isTyping || typingSettings.typingCount !== 'Words') return;
+
+    const userWords = typedText.trim().split(/\s+/);
+    const currentWordCount = userWords.length;
+
+    // Only track after each complete word
+    if (typedText.endsWith(' ') && currentWordCount <= targetWordCount) {
+      trackTypingProgress();
+    }
+  }, [typedText, isTyping]);
+
+  const generateNewText = (wordList) => {
+    if (!wordList || wordList.length === 0) {
+      console.error('No words available to generate text');
+      return;
+    }
+    
+    // Get the target word count based on current settings
+    const wordCount = getTargetWordCount(typingSettings);
+    
+    // Set the target word count for the test
+    setTargetWordCount(wordCount);
+    
+    // Generate the text with the exact number of words requested
+    const selectedWords = generateRandomWords(wordList, wordCount, true);
+    
+    // If we're in time mode, update the time left
+    if (typingSettings.typingCount === 'Time') {
+      setTimeLeft(parseInt(typingSettings.typingOption) || 30);
     }
 
     setText(selectedWords.join(' '));
@@ -212,74 +354,10 @@ export default function HomePage() {
     setIsTypingDone(false);
   };
 
-  const handleModeChange = (newSettings) => {
-    console.log('New typing settings:', newSettings);
-    setTypingSettings(newSettings);
-  };
-
   useEffect(() => {
     // Use a predefined set of words
     const words = [
-      "the",
-      "be",
-      "to",
-      "of",
-      "and",
-      "a",
-      "in",
-      "that",
-      "have",
-      "I",
-      "it",
-      "for",
-      "not",
-      "on",
-      "with",
-      "he",
-      "as",
-      "you",
-      "do",
-      "at",
-      "this",
-      "but",
-      "his",
-      "by",
-      "from",
-      "they",
-      "we",
-      "say",
-      "her",
-      "she",
-      "or",
-      "an",
-      "will",
-      "my",
-      "one",
-      "all",
-      "would",
-      "there",
-      "their",
-      "what",
-      "so",
-      "up",
-      "out",
-      "if",
-      "about",
-      "who",
-      "get",
-      "which",
-      "go",
-      "me",
-      "when",
-      "make",
-      "can",
-      "like",
-      "time",
-      "no",
-      "just",
-      "him",
-      "know",
-      "take",
+      "the","be","to","of","and","a","in","that","have","I","it","for","not","on","with","he","as","you","do","at","this","but","his","by","from","they","we","say","her","she","or","an","will","my","one","all","would","there","their","what","so","up","out","if","about","who","get","which","go","me","when","make","can","like","time","no","just","him","know","take",
     ];
 
     // Select 20 random words from the list
@@ -418,16 +496,38 @@ export default function HomePage() {
 
   useEffect(() => {
     if (endTime && startTime) {
-      const timeInSeconds = (endTime - startTime) / 1000;
-      const wordsTyped = typedText.split(" ").length;
-      setWpm(Math.round((wordsTyped / timeInSeconds) * 60));
+      const totalTimeInMinutes = (endTime - startTime) / 1000 / 60;
+      const userWords = typedText.trim().split(/\s+/);
+      const correctWords = userWords.filter((word, idx) => 
+        word === text.trim().split(/\s+/)[idx]
+      ).length;
+      
+      const actualWPM = Math.round(correctWords / Math.max(0.1, totalTimeInMinutes));
+      const totalErrorChars = errors.filter((err) => err).length;
+      const charAccuracy = typedText.length > 0 
+        ? Math.max(0, ((typedText.length - totalErrorChars) / typedText.length) * 100) 
+        : 100;
 
-      const totalChars = text.length;
-      const errorChars = errors.filter((err) => err).length;
-      const correctChars = totalChars - errorChars;
-      setAccuracy(Math.round((correctChars / totalChars) * 100));
+      setWpm(actualWPM);
+      setAccuracy(charAccuracy);
+      setResultDetails(prev => ({
+        ...prev,
+        wpm: actualWPM,
+        accuracy: parseFloat(charAccuracy.toFixed(1)),
+        time: typingSettings.typingCount === 'Time' 
+          ? parseInt(typingSettings.typingOption) || 30 
+          : null,
+        words: typingSettings.typingCount === 'Words'
+          ? parseInt(typingSettings.typingOption) || 50
+          : null,
+        mode: typingSettings.language === 'Code'
+          ? `Code,${typingSettings.codeLanguage || 'N/A'}`
+          : `Normal,${typingSettings.language}`,
+        testDuration: (endTime - startTime) / 1000
+      }));
     }
-  }, [endTime, startTime]);
+  }, [endTime, startTime, typedText, text, errors, typingSettings]);
+  
 
   useEffect(() => {
     if (endTime) {
@@ -479,11 +579,11 @@ export default function HomePage() {
           </div>
         )}
       </div>
-      <ModeSelector
-        onModeChange={handleModeChange}
+      <ModeSelector 
         onChange={handleModeChange}
+        onModeChange={handleModeChange}
       />
-      <main className="flex-grow flex flex-col items-center justify-center space-y-8">
+      <main className="flex-grow flex flex-col items-center justify-center mb-20">
         {!isTyping && !isTypingDone && (
           <StatsDisplay
             wpm={wpm}
@@ -530,14 +630,10 @@ export default function HomePage() {
           </div>
         ) : (
           <Result
-            wpm={wpm}
-            accuracy={accuracy}
-            mode="Normal,EN"
-            raw={wpm + 10}
-            characters="123 | 45 | 6 | 7"
-            weakWords="132"
-            onRestart={handleRestart}
-          />
+          // result={resultDetails}
+          onRestart={handleRestart}
+        />
+        
         )}
 
         {!isTyping && isTypingDone && (

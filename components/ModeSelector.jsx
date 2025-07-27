@@ -36,76 +36,73 @@ export default function ModeSelector({ onChange, onModeChange }) {
     }
   }, []);
 
-  // Save to localStorage + POST to API
+  // Combined effect for localStorage, parent notification, and API sync
   useEffect(() => {
+    // Save to localStorage
     const { characterModes, ...cleanState } = selectedModes;
     localStorage.setItem('selectedModes', JSON.stringify(cleanState));
 
-    if (typeof window === 'undefined') return;
-
-    const sync = setTimeout(async () => {
-      try {
-        const response = await fetch('/api/modes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cleanState),
-        });
-        if (!response.ok) {
-          console.warn('Failed to save modes to API:', response.status);
-        }
-      } catch {
-        console.warn('Could not connect to modes API, using localStorage only');
-      }
-    }, 500);
-
-    return () => clearTimeout(sync);
-  }, [selectedModes]);
-
-  // Notify parent
-  useEffect(() => {
+    // Notify parent
     onChange?.(selectedModes);
     onModeChange?.(selectedModes);
+
+    // Sync with API
+    if (typeof window !== 'undefined') {
+      const sync = async () => {
+        try {
+          const response = await fetch('/api/modes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cleanState),
+          });
+          if (!response.ok) {
+            console.warn('Failed to save modes to API:', response.status);
+          }
+        } catch {
+          console.warn('Could not connect to modes API, using localStorage only');
+        }
+      };
+      
+      const timer = setTimeout(sync, 500);
+      return () => clearTimeout(timer);
+    }
   }, [selectedModes, onChange, onModeChange]);
 
   // Cleanup on unmount
   useEffect(() => () => codeOptionsTimeout && clearTimeout(codeOptionsTimeout), [codeOptionsTimeout]);
 
   const update = (key, value) => {
-    if (selectedModes[key] === value) return; 
-  
-    if (key === 'typingCount') {
-      const current = selectedModes.typingCount;
-      if (value === 'Words' || value === 'Time') {
-        const defaultVal = value === 'Words' ? '50' : '60';
-        if (current === value && selectedModes.typingOption) return; // already selected
-        setSelectedModes(prev => ({
-          ...prev,
-          typingCount: value,
-          typingOption: defaultVal,
-          quoteSize: '',
-        }));
-      } else if (value === 'Quote') {
-        if (current === 'Quote' && selectedModes.quoteSize) return;
-        setSelectedModes(prev => ({
-          ...prev,
-          typingCount: value,
-          quoteSize: prev.quoteSize || 'Medium',
-        }));
+    setSelectedModes(prev => {
+      if (prev[key] === value) return prev; // No change needed
+
+      // Create a new state object based on the previous state
+      const newState = { ...prev };
+
+      if (key === 'typingCount') {
+        const current = prev.typingCount;
+        if (value === 'Words' || value === 'Time') {
+          if (current === value && prev.typingOption) return prev; // already selected
+          newState.typingCount = value;
+          newState.typingOption = value === 'Words' ? '50' : '60';
+          newState.quoteSize = '';
+        } else if (value === 'Quote') {
+          if (current === 'Quote' && prev.quoteSize) return prev;
+          newState.typingCount = value;
+          newState.quoteSize = prev.quoteSize || 'Medium';
+        }
+        return newState;
       }
-      return;
-    }
-  
-    if (key === 'language') {
-      if (selectedModes.language === value) return;
-      setSelectedModes(prev => ({
-        ...prev,
-        language: value,
-        codeLanguage: value === 'Code' ? (prev.codeLanguage || 'C/C++') : '',
-      }));
-      return;
-    }
-  
-    setSelectedModes(prev => ({ ...prev, [key]: value }));
+
+      if (key === 'language') {
+        if (prev.language === value) return prev;
+        newState.language = value;
+        newState.codeLanguage = value === 'Code' ? (prev.codeLanguage || 'C/C++') : '';
+        return newState;
+      }
+
+      // For other updates
+      return { ...newState, [key]: value };
+    });
   };
   
 

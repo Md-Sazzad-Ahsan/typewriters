@@ -56,12 +56,29 @@ export default function useTypingLogic({ mode, code, lang, time }) {
 
     // Start typing on first character key press
     if (!state.isTyping && e.key.length === 1 && e.key !== ' ') {
+      const now = new Date();
       setState(prev => ({
         ...prev,
         isTyping: true,
-        startTime: new Date(),
+        startTime: now,
       }));
+    
+      // Start timer here
+      if (time && !isNaN(time)) {
+        const minutes = parseInt(time);
+        const milliseconds = minutes * 60 * 1000;
+    
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          setState(prev => ({
+            ...prev,
+            endTime: new Date(),
+            isTyping: false,
+          }));
+        }, milliseconds);
+      }
     }
+    
 
     // Handle backspace
     if (e.key === 'Backspace') {
@@ -124,29 +141,6 @@ export default function useTypingLogic({ mode, code, lang, time }) {
       });
     }
   }, [state.endTime, state.isTyping, state.text, state.errors, state.currentCharIndex, state.correctCharCount]);
-
-  useEffect(() => {
-    if (state.isTyping && time) {
-      const minutes = parseInt(time);
-      const milliseconds = minutes * 60 * 1000;
-      
-      if (timerRef.current) clearTimeout(timerRef.current);
-      
-      timerRef.current = setTimeout(() => {
-        setState(prev => ({
-          ...prev,
-          endTime: new Date(),
-          isTyping: false,
-        }));
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      }, milliseconds);
-    }
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [state.isTyping, time]);
 
   const wpm = state.startTime && state.endTime
     ? calculateWPM(state.correctCharCount, state.startTime, state.endTime)
