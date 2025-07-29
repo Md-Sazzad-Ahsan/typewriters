@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   ResponsiveContainer,
@@ -8,250 +8,180 @@ import {
   Tooltip,
   Legend,
   Line,
-  Area,
   CartesianGrid,
-} from 'recharts';
+} from "recharts";
 
 export default function TypingResultChart() {
-  // Get the latest typing progress data from localStorage
-  const typingProgress = JSON.parse(localStorage.getItem('typing_progress') || '[]');
-  
-  // Get the most recent entry
-  const latestEntry = typingProgress.length > 0 ? typingProgress[typingProgress.length - 1] : null;
-  
-  if (!latestEntry) return null;
-
-  // Determine if the test was time-based or word-based
-  const isTimeBased = latestEntry.mode === 'Time';
-  const total = isTimeBased ? (latestEntry.duration ? parseInt(latestEntry.duration) : 30) : latestEntry.wordsTyped;
-  
-  // Create a result object similar to what was previously passed as props
   const result = {
-    wpm: latestEntry.wpm,
-    rawWPM: latestEntry.rawWPM,
-    accuracy: latestEntry.accuracy,
-    time: isTimeBased ? parseInt(latestEntry.elapsedTime) : null,
-    words: !isTimeBased ? latestEntry.wordsTyped : null,
-    errors: latestEntry.errors,
-    testData: typingProgress
-      .filter((entry, index, self) => 
-        index === self.findIndex(e => 
-          (isTimeBased ? Math.min(Math.floor(parseFloat(e.elapsedTime)), total) : e.wordsTyped) === 
-          (isTimeBased ? Math.min(Math.floor(parseFloat(entry.elapsedTime)), total) : entry.wordsTyped)
-        )
-      )
-      .sort((a, b) => {
-        if (isTimeBased) {
-          return parseFloat(a.elapsedTime) - parseFloat(b.elapsedTime);
-        } else {
-          return (a.wordsTyped || 0) - (b.wordsTyped || 0);
-        }
-      })
-      .map(entry => ({
-        time: isTimeBased ? Math.min(Math.floor(parseFloat(entry.elapsedTime)), total) : null,
-        words: !isTimeBased ? entry.wordsTyped : null,
-        wpm: entry.wpm,
-        rawWPM: entry.rawWPM,
-        accuracy: entry.accuracy,
-      }))
-      .filter(entry => !isTimeBased || (entry.time !== null && entry.time <= total))
-  };
-  
-  // Debug: Log the testData to see what we have
-  console.log('TestData:', result.testData);
-  console.log('TestData length:', result.testData.length);
-
-  // Determine number of steps based on total
-  let steps = 1;
-  if (total <= 25) {
-    steps = 1;
-  } else if (total <= 50) {
-    steps = 2;
-  } else {
-    steps = 5;
-  }
-  
-  // For word-based tests, we want to show all words if we don't have specific data points
-  if (!isTimeBased && (!result.testData || result.testData.length === 0)) {
-    steps = result.words || 1;
-  }
-
-  // Generate chart data
-  const generateChartData = () => {
-    console.log('Generating chart data, testData available:', result.testData && result.testData.length > 0);
-    // Always use testData if available
-    if (result.testData && result.testData.length > 0) {
-      console.log('Using testData for chart generation');
-      // Deduplicate data points by time/word value and limit to actual test duration
-      const uniqueDataPoints = result.testData
-        .filter((point, index, self) => 
-          index === self.findIndex(p => 
-            (isTimeBased ? p.time : p.words) === 
-            (isTimeBased ? point.time : point.words)
-          )
-        )
-        .filter(point => !isTimeBased || (point.time !== null && point.time <= total))
-        .sort((a, b) => {
-          if (isTimeBased) {
-            return (a.time || 0) - (b.time || 0);
-          } else {
-            return (a.words || 0) - (b.words || 0);
-          }
-        });
-      
-      return uniqueDataPoints.map((point) => ({
-        name: isTimeBased
-          ? `${point.time ?? 0}`
-          : `${point.words ?? 0}`,
-        wpm: point.wpm,
-        rawWPM: point.rawWPM,
-        accuracy: point.accuracy,
-      }));
-    }
-
-    // For word-based tests without testData, show points for each word up to the target
-    if (!isTimeBased && result.words) {
-      console.log('Using word-based fallback logic');
-      return Array.from({ length: result.words }, (_, i) => {
-        const wordNumber = i + 1;
-        return {
-          name: `${wordNumber}`,
-          wpm: result.wpm,
-          rawWPM: result.rawWPM,
-          accuracy: result.accuracy,
-        };
-      });
-    }
-
-    // For time-based tests, show points at regular intervals
-    if (isTimeBased && total) {
-      console.log('Using time-based fallback logic');
-      // For short tests (≤ 10 seconds), show every second
-      if (total <= 10) {
-        return Array.from({ length: total }, (_, i) => {
-          const second = i + 1;
-          return {
-            name: `${second}`,
-            wpm: result.wpm,
-            rawWPM: result.rawWPM,
-            accuracy: result.accuracy,
-          };
-        });
-      }
-      
-      // For longer tests, create data points at regular intervals
-      const interval = Math.max(1, Math.floor(total / 10)); // Aim for about 10 data points
-      const dataPointCount = Math.floor(total / interval) + 1;
-      
-      const dataPoints = [];
-      for (let i = 0; i <= dataPointCount; i++) {
-        const timePoint = i * interval;
-        // Only include time points that are within the actual test duration
-        if (timePoint > 0 && timePoint <= total) {
-          dataPoints.push({
-            name: `${timePoint}`,
-            wpm: result.wpm,
-            rawWPM: result.rawWPM,
-            accuracy: result.accuracy,
-          });
-        }
-      }
-      
-      // If we don't have enough data points, add the final point
-      if (dataPoints.length === 0 || (dataPoints[dataPoints.length - 1].name !== `${total}`)) {
-        dataPoints.push({
-          name: `${total}`,
-          wpm: result.wpm,
-          rawWPM: result.rawWPM,
-          accuracy: result.accuracy,
-        });
-      }
-      
-      return dataPoints;
-    }
-
-    const stepSize = Math.floor(total / steps) || 1;
-
-    return Array.from({ length: steps }, (_, i) => {
-      const value = (i + 1) * stepSize;
-      return {
-        name: `${value}`,
-        wpm: result.wpm,
-        rawWPM: result.rawWPM,
-        accuracy: result.accuracy,
-      };
-    });
+    wpm: 62,
+    rawWPM: 68,
+    accuracy: 94.7,
+    characters: 310,
+    time: 60,
+    graph: [
+      { time: 1, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 2, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
+      { time: 3, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 4, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
+      { time: 5, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 6, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
+      { time: 7, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 8, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
+      { time: 9, wpm: 55, rawWPM: 60, accuracy: 95, characters: 280 },
+      { time: 10, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
+      { time: 11, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 12, wpm: 100, rawWPM: 80, accuracy: 96, characters: 310 },
+      { time: 13, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 14, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
+      { time: 15, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 16, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 17, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
+      { time: 18, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 19, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
+      { time: 20, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 21, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
+      { time: 22, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 23, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
+      { time: 24, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 25, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
+      { time: 26, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 27, wpm: 100, rawWPM: 80, accuracy: 96, characters: 310 },
+      { time: 28, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 29, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
+      { time: 30, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+    ],
   };
 
-  const data = generateChartData();
+  const data = result.graph;
 
   return (
-    <div style={{ width: '100%', height: 300 }}>
+    <div style={{ width: "95%", height: 370 }}>
       <ResponsiveContainer>
         <ComposedChart
           data={data}
-          margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+          margin={{ top: 20, right: 20, bottom: 10, left: 20 }}
         >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="name"
-            label={{
-              value: isTimeBased
-                ? `Duration (${total}s)`
-                : `Words (${result.words || latestEntry.wordsTyped})`,
-              position: 'insideBottom',
-              offset: -5,
-            }}
+          <CartesianGrid strokeDasharray="3 3" yAxisId="left" />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="rgba(121, 134, 134, 0.4)"
+            yAxisId="right"
           />
+          <XAxis
+            dataKey="time"
+            label={{
+              value: "Time (seconds)",
+              position: "insideBottom",
+              offset: -10,
+            }}
+            allowDecimals={false}
+            ticks={(() => {
+              const total = data.length;
+              const step =
+                total <= 30
+                  ? 1
+                  : total <= 60
+                  ? 2
+                  : total <= 120
+                  ? 3
+                  : total <= 180
+                  ? 4
+                  : 5;
+
+              return data.map((d) => d.time).filter((t) => t % step === 0);
+            })()}
+          />
+
           <YAxis
             yAxisId="left"
-            domain={[0, Math.max((result.rawWPM || 0) + 10, 100)]}
+            domain={[0, "auto"]}
             allowDecimals={false}
+            label={{
+              value: "Words Per Minute",
+              angle: -90,
+              position: "insideLeft",
+              offset: 20,
+              style: { textAnchor: "middle", fill: "#00A362", fontSize: 12 },
+            }}
           />
           <YAxis
             yAxisId="right"
             orientation="right"
-            domain={[0, 120]}
+            domain={[0, 100]}
             tickCount={12}
             tickFormatter={(v) => `${v}%`}
             allowDecimals={false}
+            label={{
+              value: "Accuracy",
+              angle: 90,
+              position: "insideRight",
+              offset: 5,
+              style: { textAnchor: "middle", fill: "#FF692A", fontSize: 12 },
+            }}
           />
           <Tooltip
             formatter={(value, name) =>
-              name === 'Accuracy'
+              name === "Accuracy"
                 ? [`${parseFloat(value).toFixed(1)}%`, name]
                 : [value, name]
             }
-            labelFormatter={(label) => `Time/Words: ${label}`}
+            labelFormatter={(label) => `Time: ${label}s`}
+            contentStyle={{
+              backgroundColor: "#333", // dark background
+              borderColor: "#555",
+              color: "#eee", // light text color
+              fontWeight: "bold",
+            }}
+            labelStyle={{ color: "#eee" }}
           />
-          <Legend />
-          <Area
-            yAxisId="left"
-            type="monotone"
-            dataKey="rawWPM"
-            name="Raw WPM"
-            fill="rgba(137, 152, 245, 0.4)"
-            stroke="#8884d8"
-            strokeWidth={2}
-            dot={data.length < 10}
+          <Legend
+            verticalAlign="top"
+            height={40}
+            formatter={(value, entry) => {
+              const stats = {
+                WPM: `${result.wpm}`,
+                "Raw WPM": `${result.rawWPM}`,
+                Accuracy: `${result.accuracy}%`,
+              };
+
+              return (
+                <span
+                  className="font-bold text-3xl"
+                  style={{ color: entry.color }}
+                >
+                  {value}: {stats[value] ?? ""}
+                </span>
+              );
+            }}
           />
+
           <Line
             yAxisId="left"
             type="monotone"
             dataKey="wpm"
             name="WPM"
-            stroke="#2c2c90"
+            stroke="#00A362"
             strokeWidth={2}
             dot={data.length < 10}
             activeDot={{ r: 5 }}
+          />
+          <Line
+            yAxisId="left"
+            type="monotone"
+            dataKey="rawWPM"
+            name="Raw WPM"
+            // fill="rgba(137, 152, 245, 0.4)"
+            stroke="#0066FF"
+            strokeWidth={1}
+            dot={data.length < 10}
           />
           <Line
             yAxisId="right"
             type="monotone"
             dataKey="accuracy"
             name="Accuracy"
-            stroke="#ff7300"
-            strokeWidth={2}
+            stroke="#FF692A"
+            strokeWidth={1}
             dot={data.length < 10}
             activeDot={{ r: 6 }}
           />

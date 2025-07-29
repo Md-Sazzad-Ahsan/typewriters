@@ -267,61 +267,16 @@ export default function HomePage() {
     }
   }, [typedText, isTyping, typingSettings.typingCount, targetWordCount, text]);
 
-  //New Function to track and save typing progress
-  const trackTypingProgress = () => {
-    const now = new Date();
-    const elapsedTimeInSeconds = (now - startTime) / 1000;
-    const elapsedTimeInMinutes = elapsedTimeInSeconds / 60;
-
-    const totalChars = typedText.length;
-    const totalWords = typedText.trim().split(/\s+/).length;
-
-    const totalErrorChars = errors.filter(Boolean).length;
-    const correctChars = totalChars - totalErrorChars;
-
-    const rawWPM = Math.round((totalChars / 5) / Math.max(elapsedTimeInMinutes, 0.01));
-    const adjustedWPM = Math.max(0, rawWPM - Math.round(totalErrorChars / Math.max(elapsedTimeInMinutes * 60, 1)));
-    const accuracyPercent = totalChars > 0 ? ((correctChars / totalChars) * 100).toFixed(1) : '100.0';
-
-    const newEntry = {
-      timestamp: Date.now(),
-      mode: typingSettings.typingCount,
-      duration: typingSettings.typingOption,
-      wpm: adjustedWPM,
-      rawWPM: rawWPM,
-      accuracy: parseFloat(accuracyPercent),
-      errors: totalErrorChars,
-      wordsTyped: totalWords,
-      charactersTyped: totalChars,
-      elapsedTime: elapsedTimeInSeconds.toFixed(2),
-    };
-
-    const prevData = JSON.parse(localStorage.getItem('typing_progress')) || [];
-    localStorage.setItem('typing_progress', JSON.stringify([...prevData, newEntry]));
-  };
+  // No test data tracking functionality
 
   // Track progress for time-based tests
   useEffect(() => {
-    if (isTyping && typingSettings.typingCount === 'Time') {
-      testIntervalRef.current = setInterval(() => {
-        trackTypingProgress();
-      }, 1000); // track every second
-
-      return () => clearInterval(testIntervalRef.current);
-    }
+    // No test data tracking needed
   }, [isTyping, typedText]);
 
   // Track progress for word-based tests
   useEffect(() => {
-    if (!isTyping || typingSettings.typingCount !== 'Words') return;
-
-    const userWords = typedText.trim().split(/\s+/);
-    const currentWordCount = userWords.length;
-
-    // Only track after each complete word
-    if (typedText.endsWith(' ') && currentWordCount <= targetWordCount) {
-      trackTypingProgress();
-    }
+    // No test data tracking needed
   }, [typedText, isTyping]);
 
   const generateNewText = (wordList) => {
@@ -630,10 +585,22 @@ export default function HomePage() {
           </div>
         ) : (
           <Result
-          // result={resultDetails}
-          onRestart={handleRestart}
-          result={resultDetails}
-        />
+  result={{
+    wpm: 62,
+    rawWPM: 68,
+    accuracy: 94.7,
+    characters: 310,
+    time: 60,
+    graph: [
+      { time: 1, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 2, wpm: 57, rawWPM: 62, accuracy: 95, characters: 290 },
+      { time: 3, wpm: 60, rawWPM: 65, accuracy: 94, characters: 300 },
+      { time: 4, wpm: 62, rawWPM: 68, accuracy: 94.7, characters: 310 },
+    ],
+  }}
+  onRestart={handleRestart}
+/>
+
         
         )}
 
