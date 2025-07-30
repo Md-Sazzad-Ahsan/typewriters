@@ -16,7 +16,7 @@ const guestLinks = [
   "Sign In",
 ];
 
-export default function Header() {
+export default function Header({ isTyping }) {
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const [isAuthenticated, setAuthenticated] = useState(false); // Mock authentication state
   const dropdownRef = useRef(null);
@@ -46,7 +46,8 @@ export default function Header() {
         </div>
 
         {/* Right: Navigation and Profile */}
-        <div className="flex items-center space-x-8">
+        {!isTyping && (
+          <div className="flex items-center space-x-8">
           <nav className="flex items-center space-x-6">
             {navLinks.map((link) => (
               <a
@@ -95,6 +96,7 @@ export default function Header() {
             )}
           </div>
         </div>
+        )}
       </div>
     </header>
   );
