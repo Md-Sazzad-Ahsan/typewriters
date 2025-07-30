@@ -1,44 +1,100 @@
-import React from 'react';
-import { IoIosSettings } from "react-icons/io";
-import { FaRegUserCircle, FaInfo } from "react-icons/fa";
-import { BsKeyboardFill, BsInfoSquare } from "react-icons/bs";
+import React, { useState, useRef, useEffect } from "react";
+import { FaRegUserCircle } from "react-icons/fa";
 
-const navButtons = [
-  { icon: <BsKeyboardFill className="w-5 h-5 text-gray-400" />, label: 'Keyboard' },
-  { icon: <FaInfo className="w-5 h-5 text-gray-400" />, label: 'Info' },
-  { icon: <IoIosSettings className="w-5 h-5 text-gray-400" />, label: 'Settings' },
+const navLinks = ["Practice","Learning","Certify","Customize", "Ranking"];
+
+const authenticatedLinks = [
+  "User Stats",
+  "Public Profile",
+  "Account Settings",
+  "Sign Out",
+];
+const guestLinks = [
+  "Notifications",
+  "Terms & Conditions",
+  "Privacy Policy",
+  "Sign In",
 ];
 
 export default function Header() {
-  return (
-    <header className="w-full bg-transparent">
-      <div className="flex justify-between items-center py-4 px-4 mx-auto max-w-7xl">
-        {/* Left: Logo + Icons */}
-        <div className="flex items-center space-x-2 text-lg font-bold text-white">
-          <div className="cursor-pointer pr-5" aria-label="Home">
-            <span className="text-green-400 text-xl">Type</span>
-            <span className="text-white text-xl">Writers</span>
-          </div>
+  const [isDropdownOpen, setDropdownOpen] = useState(false);
+  const [isAuthenticated, setAuthenticated] = useState(false); // Mock authentication state
+  const dropdownRef = useRef(null);
 
-          {navButtons.map(({ icon, label }, idx) => (
-            <button
-              key={idx}
-              aria-label={label}
-              className="p-2 rounded-full hover:bg-gray-700 transition-colors"
-            >
-              {icon}
-            </button>
-          ))}
+  const handleMouseEnter = () => setDropdownOpen(true);
+  const handleMouseLeave = () => setDropdownOpen(false);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const linksToShow = isAuthenticated ? authenticatedLinks : guestLinks;
+
+  return (
+    <header className="w-full bg-transparent text-gray-300">
+      <div className="flex justify-between items-center py-4 px-8 mx-auto max-w-7xl">
+        {/* Left: Logo */}
+        <div className="cursor-pointer" aria-label="Home">
+          <span className="text-2xl font-bold text-green-400">Type</span>
+          <span className="text-2xl font-semibold text-white">Writers</span>
         </div>
 
-        {/* Right: Profile */}
-        <button
-          className="flex items-center space-x-3 px-5 py-2 rounded-full hover:bg-gray-700 transition-colors"
-          aria-label="Profile"
-        >
-          <FaRegUserCircle className="w-5 h-5 text-gray-400" />
-          <span>Profile</span>
-        </button>
+        {/* Right: Navigation and Profile */}
+        <div className="flex items-center space-x-8">
+          <nav className="flex items-center space-x-6">
+            {navLinks.map((link) => (
+              <a
+                key={link}
+                href="#"
+                className="text-gray-400 hover:text-white transition-colors duration-300"
+              >
+                {link}
+              </a>
+            ))}
+          </nav>
+
+          {/* Profile Button and Dropdown */}
+          <div
+            className="relative"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            ref={dropdownRef}
+          >
+            <button
+              className="flex items-center space-x-2 px-4 py-2 rounded-md text-white font-medium text-sm transition-colors duration-300 cursor-pointer"
+              aria-label="Profile"
+            >
+              <FaRegUserCircle className="w-4 h-4" />
+              <span>Profile</span>
+            </button>
+
+            {isDropdownOpen && (
+              <div
+                className="absolute right-2 px-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-10"
+                style={{ width: "max-content" }}
+              >
+                <ul className="py-1">
+                  {linksToShow.map((link) => (
+                    <li key={link}>
+                      <a
+                        href="#"
+                        className="block whitespace-nowrap px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                      >
+                        {link}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </header>
   );

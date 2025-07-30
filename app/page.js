@@ -306,9 +306,15 @@ export default function HomePage() {
   }, []);
 
   const handleKeyDown = (e) => {
-    e.preventDefault(); // Prevent default behavior to avoid any unwanted side effects
+    e.preventDefault(); // Prevent default behavior
 
-    if (!isTyping) {
+    // If the test is done, or if a non-character key (like Shift, Ctrl) is pressed, do nothing.
+    if (isTypingDone || (e.key.length > 1 && e.key !== 'Backspace')) {
+      return;
+    }
+
+    // Start the test only when a printable character is typed.
+    if (!isTyping && e.key.length === 1) {
       setStartTime(new Date());
       setIsTyping(true);
     }
@@ -482,7 +488,7 @@ export default function HomePage() {
         onModeChange={handleModeChange}
       />
       <main className="flex-grow flex flex-col items-center justify-center mb-20">
-        {!isTyping && !isTypingDone && (
+        {/* {!isTyping && !isTypingDone && (
           <StatsDisplay
             wpm={wpm}
             accuracy={accuracy}
@@ -492,11 +498,11 @@ export default function HomePage() {
                 : 0
             }
           />
-        )}
+        )} */}
 
         {!isTypingDone ? (
           <div
-            className="relative w-full p-6 rounded-lg shadow-lg cursor-text"
+            className="relative w-full px-6 rounded-lg shadow-lg cursor-text"
             onClick={() => inputRef.current?.focus()}
           >
             <TypingArea
