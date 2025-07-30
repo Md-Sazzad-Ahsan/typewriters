@@ -113,7 +113,7 @@ export default function HomePage() {
           Python: "/words/Coding/python_words.txt",
           JavaScript: "/words/Coding/javascript_words.txt",
           Java: "/words/Coding/java_words.txt",
-          Flutter: "/words/Coding/dart_words.txt",
+          Flutter: "/words/Coding/flutter_dart_words.txt",
         };
         wordFilePath =
           codeLanguageMap[codeLanguage] || "/words/English/common3k.txt";

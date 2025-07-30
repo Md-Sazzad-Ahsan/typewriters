@@ -1,9 +1,12 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 export default function TypingArea({ text, typedText, errors }) {
   const containerRef = useRef(null);
   const activeCharRef = useRef(null);
+  const [startTime] = useState(Date.now());
+  const [typeResult, setTypeResult] = useState([]);
 
+  // Auto-scroll logic (unchanged)
   useEffect(() => {
     if (activeCharRef.current && containerRef.current) {
       const charElement = activeCharRef.current;
@@ -12,18 +15,52 @@ export default function TypingArea({ text, typedText, errors }) {
       const charTop = charElement.offsetTop;
       const containerScrollTop = containerElement.scrollTop;
       const containerHeight = containerElement.clientHeight;
-
       const lineHeight = charElement.offsetHeight;
 
       if (charTop > containerScrollTop + lineHeight) {
         const desiredScrollTop = charTop - lineHeight;
         containerElement.scrollTo({
           top: desiredScrollTop,
-          behavior: "smooth", 
+          behavior: "smooth",
         });
       }
     }
-  }, [typedText]); 
+  }, [typedText]);
+
+  // WPM, rawWPM, accuracy calculation every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+      if (elapsedTime === 0) return;
+
+      const correctChars = typedText
+        .split("")
+        .filter((char, i) => char === text[i]).length;
+
+      const totalChars = typedText.length;
+      const wpm = ((correctChars / 5) / (elapsedTime / 60)).toFixed(2);
+      const rawWPM = ((totalChars / 5) / (elapsedTime / 60)).toFixed(2);
+      const accuracy = totalChars === 0
+        ? 100
+        : ((correctChars / totalChars) * 100).toFixed(2);
+
+      const newData = {
+        time: elapsedTime,
+        wpm: Number(wpm),
+        rawWPM: Number(rawWPM),
+        accuracy: Number(accuracy),
+        characters: totalChars,
+      };
+
+      setTypeResult((prev) => {
+        const updated = [...prev, newData];
+        localStorage.setItem("typeResult", JSON.stringify(updated));
+        return updated;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [typedText, text, startTime]);
 
   return (
     <div
@@ -37,14 +74,9 @@ export default function TypingArea({ text, typedText, errors }) {
         const isError = errors[index] && typedText[index] !== text[index];
 
         if (isTyped) {
-          // For characters that have been typed
           charClass = isError ? "text-red-500" : "text-green-400";
         } else if (isCurrent) {
-          // Current character being typed
-          charClass =
-            "text-blue-400 underline decoration-2 decoration-blue-400";
-
-          // Show red background only if current character is wrong
+          charClass = "text-blue-400 underline decoration-2 decoration-blue-400";
           if (typedText[index] && typedText[index] !== text[index]) {
             charClass = "text-red-500 bg-red-900 bg-opacity-50 rounded-sm";
           }
@@ -53,7 +85,7 @@ export default function TypingArea({ text, typedText, errors }) {
         return (
           <span
             key={index}
-            ref={isCurrent ? activeCharRef : null} // Attach ref to the current character
+            ref={isCurrent ? activeCharRef : null}
             className={charClass}
           >
             {char}

@@ -18,41 +18,26 @@ export default function TypingResultChart() {
     accuracy: 94.7,
     characters: 310,
     time: 60,
-    graph: [
+    typeResult: [
       { time: 1, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
       { time: 2, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 3, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 3, wpm: 55, rawWPM: 55, accuracy: 94, characters: 300 },
       { time: 4, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 5, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 5, wpm: 63, rawWPM: 60, accuracy: 96, characters: 280 },
       { time: 6, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
       { time: 7, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
       { time: 8, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 9, wpm: 55, rawWPM: 60, accuracy: 95, characters: 280 },
-      { time: 10, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 11, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
-      { time: 12, wpm: 100, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 13, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
-      { time: 14, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 15, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
-      { time: 16, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
-      { time: 17, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 18, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
-      { time: 19, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 20, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
-      { time: 21, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 22, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
-      { time: 23, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 24, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
-      { time: 25, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 26, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
-      { time: 27, wpm: 100, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 28, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
-      { time: 29, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 30, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 9, wpm: 54, rawWPM: 60, accuracy: 95, characters: 280 },
+      { time: 10, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
+      { time: 11, wpm: 51, rawWPM: 60, accuracy: 96, characters: 280 },
+      { time: 12, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
+      { time: 13, wpm: 57, rawWPM: 55, accuracy: 94, characters: 300 },
+      { time: 14, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
+      { time: 15, wpm: 56, rawWPM: 60, accuracy: 95, characters: 280 },
     ],
   };
 
-  const data = result.graph;
+  const data = result.typeResult;
 
   return (
     <div style={{ width: "95%", height: 370 }}>
