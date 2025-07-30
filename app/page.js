@@ -27,17 +27,19 @@ export default function HomePage() {
     punctuation: true,
     numbers: false,
     codeLanguage: '',
-    typingCount: 'Time',
-    typingOption: '',
-    quoteSize: ''
+    modeType: 'Time',
+    timeLimit: 30,
+    wordLimit: 50,
+    quoteSize: 'medium',
   });
 
   const handleModeChange = useCallback((newModes) => {
     console.log('New typing settings:', newModes);
     setTypingSettings(newModes);
   }, []);
+
   const [wordList, setWordList] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(typingSettings.timeLimit);
   const [targetWordCount, setTargetWordCount] = useState(null);
   const timerRef = useRef(null);
   const inputRef = useRef(null);
@@ -50,23 +52,21 @@ export default function HomePage() {
     testDuration: 0
   });
 
-
   // Reset test and regenerate words when typing settings change
   useEffect(() => {
     const regenerateWords = async () => {
       try {
         const wordCount = getTargetWordCount(typingSettings);
         setTargetWordCount(wordCount);
-        
-        if (typingSettings.typingCount === 'Time') {
-          setTimeLeft(parseInt(typingSettings.typingOption) || 30);
+
+        if (typingSettings.modeType === 'Time') {
+          setTimeLeft(typingSettings.timeLimit);
         }
-        
-        // Force a re-fetch of words
+
         const newWords = await fetchWords(typingSettings.language, typingSettings.codeLanguage);
         const selectedWords = generateRandomWords(newWords, wordCount, true);
         setText(selectedWords.join(' '));
-        
+
         // Reset test state
         setTypedText('');
         setCurrentCharIndex(0);
@@ -77,7 +77,7 @@ export default function HomePage() {
         setIsTypingDone(false);
         setWpm(0);
         setAccuracy(100);
-        
+
         if (inputRef.current) {
           inputRef.current.focus();
         }
@@ -85,15 +85,14 @@ export default function HomePage() {
         console.error('Error regenerating words:', error);
       }
     };
-    
+
     regenerateWords();
-  }, [typingSettings.typingCount, typingSettings.typingOption, typingSettings.language, typingSettings.codeLanguage]);
+  }, [typingSettings.modeType, typingSettings.timeLimit, typingSettings.wordLimit, typingSettings.quoteSize, typingSettings.language, typingSettings.codeLanguage]);
 
   // Function to fetch words based on language and code language
   const fetchWords = async (language, codeLanguage = '') => {
     try {
       let wordFilePath = '';
-      
       if (language === 'English') {
         wordFilePath = '/words/English/common3k.txt';
       } else if (language === 'Bangla') {
@@ -115,12 +114,10 @@ export default function HomePage() {
       if (!response.ok) {
         throw new Error(`Failed to load words from ${wordFilePath}`);
       }
-      
       const text = await response.text();
       return text.split(/\s+/).filter(word => word.trim() !== '');
     } catch (error) {
       console.error('Error loading words:', error);
-      // Return a default set of words if loading fails
       return ['the', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog'];
     }
   };
@@ -131,19 +128,17 @@ export default function HomePage() {
       try {
         const newWords = await fetchWords(typingSettings.language, typingSettings.codeLanguage);
         setWordList(newWords);
-        
-        // Generate initial text
+
         const wordCount = getTargetWordCount(typingSettings);
         const selectedWords = generateRandomWords(newWords, wordCount, true);
         setText(selectedWords.join(' '));
         setTargetWordCount(wordCount);
-        
-        if (typingSettings.typingCount === 'Time') {
-          setTimeLeft(parseInt(typingSettings.typingOption) || 30);
+
+        if (typingSettings.modeType === 'Time') {
+          setTimeLeft(typingSettings.timeLimit);
         }
       } catch (error) {
         console.error('Error loading word list:', error);
-        // Fallback to default words if there's an error
         const defaultWords = ["the", "be", "to", "of", "and", "a", "in", "that", "have", "I"];
         setWordList(defaultWords);
         const wordCount = getTargetWordCount(typingSettings);
@@ -153,7 +148,7 @@ export default function HomePage() {
     };
 
     loadWords();
-  }, [typingSettings.language, typingSettings.codeLanguage, typingSettings.typingCount, typingSettings.typingOption]);
+  }, [typingSettings.language, typingSettings.codeLanguage, typingSettings.modeType, typingSettings.timeLimit, typingSettings.wordLimit, typingSettings.quoteSize]);
 
   // Clean up timer on unmount
   useEffect(() => {
@@ -166,39 +161,30 @@ export default function HomePage() {
 
   // Update timeLeft when typing option changes in Time mode
   useEffect(() => {
-    if (typingSettings.typingCount === 'Time' && !isTyping) {
-      const timeLimit = parseInt(typingSettings.typingOption) || 30;
-      setTimeLeft(timeLimit);
+    if (typingSettings.modeType === 'Time' && !isTyping) {
+      setTimeLeft(typingSettings.timeLimit);
     }
-  }, [typingSettings.typingOption, typingSettings.typingCount, isTyping]);
-
-
+  }, [typingSettings.timeLimit, typingSettings.modeType, isTyping]);
 
   // Start or stop timer based on typing state and settings
   useEffect(() => {
-    // Clear any existing timers
     if (timerRef.current) clearInterval(timerRef.current);
     if (testIntervalRef.current) clearInterval(testIntervalRef.current);
-    
+
     timerRef.current = null;
     testIntervalRef.current = null;
 
-    // No test data tracking needed
-    
-    // Only set up a new timer if we're in time mode and typing
-    if (isTyping && typingSettings.typingCount === 'Time') {
-      const timeLimit = parseInt(typingSettings.typingOption) || 30;
+    if (isTyping && typingSettings.modeType === 'Time') {
+      const timeLimit = typingSettings.timeLimit;
       setTimeLeft(timeLimit);
-      
-      // Start the countdown
+
       const startTime = Date.now();
       const endTime = startTime + (timeLimit * 1000);
-      
-      // Immediate first update
+
       const updateTimer = () => {
         const now = Date.now();
         const timeRemaining = Math.ceil((endTime - now) / 1000);
-        
+
         if (timeRemaining <= 0) {
           setTimeLeft(0);
           setIsTyping(false);
@@ -210,93 +196,59 @@ export default function HomePage() {
           setTimeLeft(timeRemaining);
         }
       };
-      
-      // Initial update
+
       updateTimer();
-      
-      // Set up interval for updates
       timerRef.current = setInterval(updateTimer, 200);
     }
-    
-    // Cleanup function
+
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
-        timerRef.current = null;
       }
       if (testIntervalRef.current) {
         clearInterval(testIntervalRef.current);
-        testIntervalRef.current = null;
       }
     };
-  }, [isTyping, typingSettings.typingCount, typingSettings.typingOption]);
+  }, [isTyping, typingSettings.modeType, typingSettings.timeLimit]);
 
   // Track word count for word-based tests
   useEffect(() => {
-    if (!isTyping || typingSettings.typingCount !== 'Words' || !targetWordCount) return;
-    
-    // Word tracking without data collection
-    
-    // Count words more accurately, handling multiple spaces and newlines
+    if (!isTyping || typingSettings.modeType !== 'Words' || !targetWordCount) return;
+
     const currentWordCount = typedText.trim() === '' ? 0 : typedText.trim().split(/\s+/).length;
-    
-    // Get the actual words from the original text to compare against
     const targetWords = text.split(/\s+/).slice(0, targetWordCount);
     const targetText = targetWords.join(' ');
-    
-    // Check if we've typed all the target words
+
     const userWords = typedText.trim().split(/\s+/);
-    const hasTypedAllWords = userWords.length >= targetWordCount && 
-                           userWords.slice(0, targetWordCount).join(' ') === 
+    const hasTypedAllWords = userWords.length >= targetWordCount &&
+                           userWords.slice(0, targetWordCount).join(' ') ===
                            targetWords.slice(0, Math.min(targetWordCount, userWords.length)).join(' ');
-    
+
     if (hasTypedAllWords) {
-      // Update the displayed text to exactly match the target word count
       setText(targetText);
-      
-      // Truncate the user's input to match the target word count
       if (userWords.length > targetWordCount) {
         const truncatedText = userWords.slice(0, targetWordCount).join(' ');
         setTypedText(truncatedText);
       }
-      
-      // End the test
       setIsTyping(false);
       setEndTime(new Date());
       setIsTypingDone(true);
     }
-  }, [typedText, isTyping, typingSettings.typingCount, targetWordCount, text]);
-
-  // No test data tracking functionality
-
-  // Track progress for time-based tests
-  useEffect(() => {
-    // No test data tracking needed
-  }, [isTyping, typedText]);
-
-  // Track progress for word-based tests
-  useEffect(() => {
-    // No test data tracking needed
-  }, [typedText, isTyping]);
+  }, [typedText, isTyping, typingSettings.modeType, targetWordCount, text]);
 
   const generateNewText = (wordList) => {
     if (!wordList || wordList.length === 0) {
       console.error('No words available to generate text');
       return;
     }
-    
-    // Get the target word count based on current settings
+
     const wordCount = getTargetWordCount(typingSettings);
-    
-    // Set the target word count for the test
     setTargetWordCount(wordCount);
-    
-    // Generate the text with the exact number of words requested
+
     const selectedWords = generateRandomWords(wordList, wordCount, true);
-    
-    // If we're in time mode, update the time left
-    if (typingSettings.typingCount === 'Time') {
-      setTimeLeft(parseInt(typingSettings.typingOption) || 30);
+
+    if (typingSettings.modeType === 'Time') {
+      setTimeLeft(typingSettings.timeLimit);
     }
 
     setText(selectedWords.join(' '));
@@ -469,12 +421,8 @@ export default function HomePage() {
         ...prev,
         wpm: actualWPM,
         accuracy: parseFloat(charAccuracy.toFixed(1)),
-        time: typingSettings.typingCount === 'Time' 
-          ? parseInt(typingSettings.typingOption) || 30 
-          : null,
-        words: typingSettings.typingCount === 'Words'
-          ? parseInt(typingSettings.typingOption) || 50
-          : null,
+        time: typingSettings.modeType === 'Time' ? typingSettings.timeLimit : null,
+        words: typingSettings.modeType === 'Words' ? typingSettings.wordLimit : null,
         mode: typingSettings.language === 'Code'
           ? `Code,${typingSettings.codeLanguage || 'N/A'}`
           : `Normal,${typingSettings.language}`,
@@ -482,7 +430,6 @@ export default function HomePage() {
       }));
     }
   }, [endTime, startTime, typedText, text, errors, typingSettings]);
-  
 
   useEffect(() => {
     if (endTime) {
@@ -491,16 +438,14 @@ export default function HomePage() {
   }, [endTime]);
 
   const handleRestart = () => {
-    // Reset all states
     setTypedText("");
     setCurrentCharIndex(0);
     setErrors([]);
     setStartTime(null);
     setEndTime(null);
     
-    // Reset timer and word count
-    if (typingSettings.typingCount === 'Time') {
-      setTimeLeft(parseInt(typingSettings.typingOption) || 30);
+    if (typingSettings.modeType === 'Time') {
+      setTimeLeft(typingSettings.timeLimit);
     } else {
       setTimeLeft(null);
     }
@@ -508,12 +453,10 @@ export default function HomePage() {
     setIsTyping(false);
     setIsTypingDone(false);
     
-    // Generate new text with current settings
     if (wordList.length > 0) {
       generateNewText(wordList);
     }
     
-    // Focus the input
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -523,12 +466,12 @@ export default function HomePage() {
     <div className="flex flex-col min-h-screen p-4 max-w-7xl mx-auto">
       <Header />
       <div className="mb-4 text-center">
-        {typingSettings.typingCount === 'Time' && timeLeft !== null && (
+        {typingSettings.modeType === 'Time' && timeLeft !== null && (
           <div className="text-2xl font-bold text-blue-500">
             Time Left: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
           </div>
         )}
-        {typingSettings.typingCount === 'Words' && targetWordCount !== null && (
+        {typingSettings.modeType === 'Words' && targetWordCount !== null && (
           <div className="text-xl font-semibold text-green-600">
             Words: {typedText.trim() === '' ? 0 : typedText.trim().split(/\s+/).length} / {targetWordCount}
           </div>
