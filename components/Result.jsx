@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -12,32 +13,50 @@ import {
 } from "recharts";
 
 export default function TypingResultChart() {
-  const result = {
-    wpm: 62,
-    rawWPM: 68,
-    accuracy: 94.7,
-    characters: 310,
-    time: 60,
-    typeResult: [
-      { time: 1, wpm: 55, rawWPM: 60, accuracy: 96, characters: 280 },
-      { time: 2, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 3, wpm: 55, rawWPM: 55, accuracy: 94, characters: 300 },
-      { time: 4, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 5, wpm: 63, rawWPM: 60, accuracy: 96, characters: 280 },
-      { time: 6, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 7, wpm: 50, rawWPM: 55, accuracy: 94, characters: 300 },
-      { time: 8, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 9, wpm: 54, rawWPM: 60, accuracy: 95, characters: 280 },
-      { time: 10, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 11, wpm: 51, rawWPM: 60, accuracy: 96, characters: 280 },
-      { time: 12, wpm: 45, rawWPM: 50, accuracy: 95, characters: 290 },
-      { time: 13, wpm: 57, rawWPM: 55, accuracy: 94, characters: 300 },
-      { time: 14, wpm: 75, rawWPM: 80, accuracy: 96, characters: 310 },
-      { time: 15, wpm: 56, rawWPM: 60, accuracy: 95, characters: 280 },
-    ],
-  };
+  const [data, setData] = useState([]);
+  const [result, setResult] = useState({
+    wpm: 0,
+    rawWPM: 0,
+    accuracy: 0,
+    characters: 0,
+    time: 0,
+  });
 
-  const data = result.typeResult;
+  useEffect(() => {
+    try {
+      const storedData = localStorage.getItem("typeResult");
+      if (storedData) {
+        const parsedData = JSON.parse(storedData);
+        setData(parsedData);
+        
+        // Calculate overall statistics from the last entry
+        if (parsedData.length > 0) {
+          const lastEntry = parsedData[parsedData.length - 1];
+          setResult({
+            wpm: lastEntry.wpm,
+            rawWPM: lastEntry.rawWPM,
+            accuracy: lastEntry.accuracy,
+            characters: lastEntry.characters,
+            time: lastEntry.time,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error reading typing results from localStorage:", error);
+    }
+  }, []);
+
+  // Show fallback UI when no typing data is available
+  if (data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96 text-gray-400">
+        <div className="text-center">
+          <p className="text-xl mb-2">No typing data available</p>
+          <p className="text-sm">Complete a typing test to see your results here</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: "95%", height: 370 }}>

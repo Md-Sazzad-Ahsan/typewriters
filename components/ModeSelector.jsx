@@ -54,21 +54,36 @@ const mapModesToModeSet = (modes) => ({
   }
 });
 
-export default function ModeSelector({ onChange, onModeChange }) {
+export default function ModeSelector({ onChange, onModeChange, initialSettings }) {
   const [selectedModes, setSelectedModes] = useState(defaultModes);
   const [showCodeOptions, setShowCodeOptions] = useState(false);
   const [codeOptionsTimeout, setCodeOptionsTimeout] = useState(null);
+  const [isHydrated, setIsHydrated] = useState(false);
 
+  // Load from localStorage after hydration
   useEffect(() => {
-    const storedModes = loadModeSetFromStorage();
-    setSelectedModes(mapModeSetToModes(storedModes));
+    if (initialSettings) {
+      setSelectedModes(initialSettings);
+    } else {
+      const storedModes = loadModeSetFromStorage();
+      setSelectedModes(mapModeSetToModes(storedModes));
+    }
+    setIsHydrated(true);
   }, []);
 
+  // Update selectedModes when initialSettings change (after hydration)
   useEffect(() => {
+    if (isHydrated && initialSettings) {
+      setSelectedModes(initialSettings);
+    }
+  }, [initialSettings, isHydrated]);
+
+  // Save to localStorage when modes change (but don't trigger parent callbacks)
+  useEffect(() => {
+    if (!isHydrated) return;
+    
     const modeSet = mapModesToModeSet(selectedModes);
     saveModeSetToStorage(modeSet);
-    onChange?.(selectedModes);
-    onModeChange?.(selectedModes);
 
     if (typeof window !== 'undefined') {
       const sync = async () => {
@@ -86,7 +101,7 @@ export default function ModeSelector({ onChange, onModeChange }) {
       const timer = setTimeout(sync, 500);
       return () => clearTimeout(timer);
     }
-  }, [selectedModes, onChange, onModeChange]);
+  }, [selectedModes, isHydrated]);
 
   useEffect(() => () => codeOptionsTimeout && clearTimeout(codeOptionsTimeout), [codeOptionsTimeout]);
 
@@ -116,6 +131,14 @@ export default function ModeSelector({ onChange, onModeChange }) {
         }
       }
 
+      // Trigger parent callbacks for user-initiated changes
+      if (isHydrated) {
+        setTimeout(() => {
+          onChange?.(newState);
+          onModeChange?.(newState);
+        }, 0);
+      }
+
       return newState;
     });
   };
@@ -123,7 +146,17 @@ export default function ModeSelector({ onChange, onModeChange }) {
   const toggleCharacter = (char) => {
     if (['Punctuation', 'Numbers'].includes(char)) {
       const key = char.toLowerCase();
-      setSelectedModes(prev => ({ ...prev, [key]: !prev[key] }));
+      setSelectedModes(prev => {
+        const newState = { ...prev, [key]: !prev[key] };
+        // Trigger parent callbacks for user-initiated changes
+        if (isHydrated) {
+          setTimeout(() => {
+            onChange?.(newState);
+            onModeChange?.(newState);
+          }, 0);
+        }
+        return newState;
+      });
     } else if (char === 'Code') {
       if (selectedModes.modeType === 'Quote') return;
       const newLang = selectedModes.language === 'Code' ? 'English' : 'Code';

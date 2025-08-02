@@ -9,6 +9,7 @@ import CommandBox from "@/components/CommandBox";
 import Footer from "@/components/Footer";
 import Result from "@/components/Result";
 import ModeSelector from "@/components/ModeSelector";
+import { loadModeSetFromStorage, saveModeSetToStorage } from "@/models/ModeSet";
 
 export default function HomePage() {
   const [text, setText] = useState("");
@@ -24,18 +25,53 @@ export default function HomePage() {
   const testIntervalRef = useRef(null);
   const [typingSettings, setTypingSettings] = useState({
     language: "English",
-    punctuation: true,
+    punctuation: false,
     numbers: false,
+    capitals: false,
     codeLanguage: "",
     modeType: "Time",
     timeLimit: 30,
     wordLimit: 50,
     quoteSize: "medium",
   });
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Load settings from localStorage after hydration
+  useEffect(() => {
+    const savedSettings = loadModeSetFromStorage();
+    setTypingSettings({
+      language: savedSettings.language || "English",
+      punctuation: savedSettings.testModes?.punctuation ?? true,
+      numbers: savedSettings.testModes?.numbers ?? false,
+      capitals: savedSettings.testModes?.capitals ?? false,
+      codeLanguage: savedSettings.codeLanguage || "",
+      modeType: savedSettings.modeType || "Time",
+      timeLimit: savedSettings.timeLimit || 30,
+      wordLimit: savedSettings.wordLimit || 50,
+      quoteSize: savedSettings.quoteSize || "medium",
+    });
+    setIsHydrated(true);
+  }, []);
 
   const handleModeChange = useCallback((newModes) => {
     console.log("New typing settings:", newModes);
     setTypingSettings(newModes);
+    
+    // Save to localStorage whenever modes change
+    const modeSetData = {
+      language: newModes.language,
+      codeLanguage: newModes.codeLanguage,
+      modeType: newModes.modeType,
+      quoteSize: newModes.quoteSize,
+      timeLimit: newModes.timeLimit,
+      wordLimit: newModes.wordLimit,
+      testModes: {
+        punctuation: newModes.punctuation,
+        numbers: newModes.numbers,
+        capitals: newModes.capitals,
+      }
+    };
+    saveModeSetToStorage(modeSetData);
   }, []);
 
   const [wordList, setWordList] = useState([]);
@@ -609,6 +645,7 @@ export default function HomePage() {
         <ModeSelector
           onChange={handleModeChange}
           onModeChange={handleModeChange}
+          initialSettings={isHydrated ? typingSettings : undefined}
         />
       )}
       <main className="flex-grow flex flex-col items-center mt-10 mb-2">
@@ -629,16 +666,16 @@ export default function HomePage() {
             className="relative w-full px-6 rounded-lg shadow-lg cursor-text"
             onClick={() => inputRef.current?.focus()}
           >
-            <div className="mb-4 text-center">
+            <div className="mb-4 text-left font-semibold text-md text-gray-500 uppercase">
               {typingSettings.modeType === "Time" && timeLeft !== null && (
-                <div className="text-2xl font-bold text-blue-500">
-                  Time Left: {Math.floor(timeLeft / 60)}:
+                <div className="">
+                  Time {Math.floor(timeLeft / 60)}:
                   {(timeLeft % 60).toString().padStart(2, "0")}
                 </div>
               )}
               {typingSettings.modeType === "Words" &&
                 targetWordCount !== null && (
-                  <div className="text-xl font-semibold text-green-600">
+                  <div className="">
                     Words:{" "}
                     {typedText.trim() === ""
                       ? 0

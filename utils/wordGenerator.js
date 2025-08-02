@@ -61,15 +61,18 @@ export function generateText(wordList, wordCount) {
  * @returns {number} The target word count
  */
 export function getTargetWordCount(settings) {
-  if (settings.typingCount === 'Words') {
-    const count = parseInt(settings.typingOption);
+  if (settings.modeType === 'Words') {
+    // For Words mode, return the exact word limit specified
+    const count = parseInt(settings.wordLimit);
     return isNaN(count) || count < 1 ? 50 : count;
-  } else if (settings.typingCount === 'Time') {
-    const timeLimit = parseInt(settings.typingOption) || 30;
+  } else if (settings.modeType === 'Time') {
+    // For Time mode, estimate words needed based on time limit
+    const timeLimit = parseInt(settings.timeLimit) || 30;
     const estimatedWPM = 40;
     return Math.max(30, Math.ceil((estimatedWPM * timeLimit) / 60));
-  } else if (settings.typingCount === 'Quote') {
-    return 30; // Default for quotes
+  } else if (settings.modeType === 'Quote') {
+    // For Quote mode, use a reasonable default
+    return 30;
   }
   return 50; // Default word count
 }

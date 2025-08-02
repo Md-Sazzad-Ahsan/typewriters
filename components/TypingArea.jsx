@@ -5,6 +5,13 @@ export default function TypingArea({ text, typedText, errors }) {
   const activeCharRef = useRef(null);
   const [startTime] = useState(Date.now());
   const [typeResult, setTypeResult] = useState([]);
+  const [hasStartedTyping, setHasStartedTyping] = useState(false);
+
+  // Initialize session - clear previous results when starting new session
+  useEffect(() => {
+    localStorage.removeItem("typeResult");
+    setTypeResult([]);
+  }, []);
 
   // Auto-scroll logic (unchanged)
   useEffect(() => {
@@ -27,40 +34,62 @@ export default function TypingArea({ text, typedText, errors }) {
     }
   }, [typedText]);
 
+  // Track when user starts typing
+  useEffect(() => {
+    if (typedText.length > 0 && !hasStartedTyping) {
+      setHasStartedTyping(true);
+    }
+  }, [typedText, hasStartedTyping]);
+
+  // Function to store current data
+  const storeCurrentData = () => {
+    if (!hasStartedTyping || typedText.length === 0) return;
+
+    const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+    if (elapsedTime === 0) return;
+
+    const correctChars = typedText
+      .split("")
+      .filter((char, i) => char === text[i]).length;
+
+    const totalChars = typedText.length;
+    const wpm = ((correctChars / 5) / (elapsedTime / 60)).toFixed(2);
+    const rawWPM = ((totalChars / 5) / (elapsedTime / 60)).toFixed(2);
+    const accuracy = totalChars === 0
+      ? 100
+      : ((correctChars / totalChars) * 100).toFixed(2);
+
+    const newData = {
+      time: elapsedTime,
+      wpm: Number(wpm),
+      rawWPM: Number(rawWPM),
+      accuracy: Number(accuracy),
+      characters: totalChars,
+    };
+
+    setTypeResult((prev) => {
+      // Prevent duplicate entries for the same time
+      const filtered = prev.filter(item => item.time !== elapsedTime);
+      const updated = [...filtered, newData];
+      localStorage.setItem("typeResult", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // WPM, rawWPM, accuracy calculation every second
   useEffect(() => {
+    if (!hasStartedTyping) return;
+
     const interval = setInterval(() => {
-      const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-      if (elapsedTime === 0) return;
-
-      const correctChars = typedText
-        .split("")
-        .filter((char, i) => char === text[i]).length;
-
-      const totalChars = typedText.length;
-      const wpm = ((correctChars / 5) / (elapsedTime / 60)).toFixed(2);
-      const rawWPM = ((totalChars / 5) / (elapsedTime / 60)).toFixed(2);
-      const accuracy = totalChars === 0
-        ? 100
-        : ((correctChars / totalChars) * 100).toFixed(2);
-
-      const newData = {
-        time: elapsedTime,
-        wpm: Number(wpm),
-        rawWPM: Number(rawWPM),
-        accuracy: Number(accuracy),
-        characters: totalChars,
-      };
-
-      setTypeResult((prev) => {
-        const updated = [...prev, newData];
-        localStorage.setItem("typeResult", JSON.stringify(updated));
-        return updated;
-      });
+      storeCurrentData();
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [typedText, text, startTime]);
+    return () => {
+      clearInterval(interval);
+      // Store final data when component unmounts
+      storeCurrentData();
+    };
+  }, [typedText, text, startTime, hasStartedTyping]);
 
   return (
     <div
