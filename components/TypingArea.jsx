@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 export default function TypingArea({ text, typedText, errors }) {
   const containerRef = useRef(null);
   const activeCharRef = useRef(null);
-  const [startTime] = useState(Date.now());
+  const [startTime, setStartTime] = useState(null);
   const [typeResult, setTypeResult] = useState([]);
   const [hasStartedTyping, setHasStartedTyping] = useState(false);
 
@@ -34,19 +34,31 @@ export default function TypingArea({ text, typedText, errors }) {
     }
   }, [typedText]);
 
-  // Track when user starts typing
+  // Track when user starts typing and set the start time
   useEffect(() => {
     if (typedText.length > 0 && !hasStartedTyping) {
       setHasStartedTyping(true);
+      // Reset the start time when typing begins
+      setStartTime(Date.now());
+      // Add initial data point
+      const initialData = {
+        time: 1,
+        wpm: 0,
+        rawWPM: 0,
+        accuracy: 100,
+        characters: 0
+      };
+      setTypeResult([initialData]);
+      localStorage.setItem("typeResult", JSON.stringify([initialData]));
     }
   }, [typedText, hasStartedTyping]);
 
   // Function to store current data
   const storeCurrentData = () => {
-    if (!hasStartedTyping || typedText.length === 0) return;
+    if (!hasStartedTyping || !startTime || typedText.length === 0) return;
 
-    const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-    if (elapsedTime === 0) return;
+    // Calculate elapsed time in seconds since test started
+    const elapsedTime = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
 
     const correctChars = typedText
       .split("")
@@ -79,7 +91,11 @@ export default function TypingArea({ text, typedText, errors }) {
   // WPM, rawWPM, accuracy calculation every second
   useEffect(() => {
     if (!hasStartedTyping) return;
-
+    
+    // Initial data point
+    storeCurrentData();
+    
+    // Then update every second
     const interval = setInterval(() => {
       storeCurrentData();
     }, 1000);

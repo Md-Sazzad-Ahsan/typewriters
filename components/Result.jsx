@@ -12,7 +12,7 @@ import {
   CartesianGrid,
 } from "recharts";
 
-export default function TypingResultChart() {
+export default function Result({ onRestart }) {
   const [data, setData] = useState([]);
   const [result, setResult] = useState({
     wpm: 0,
@@ -45,6 +45,23 @@ export default function TypingResultChart() {
       console.error("Error reading typing results from localStorage:", error);
     }
   }, []);
+
+  // Handle Tab key press to restart the test
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        if (onRestart) {
+          onRestart();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onRestart]);
 
   // Show fallback UI when no typing data is available
   if (data.length === 0) {
