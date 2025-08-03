@@ -10,6 +10,13 @@ import Footer from "@/components/Footer";
 import Result from "@/components/Result";
 import ModeSelector from "@/components/ModeSelector";
 import { loadModeSetFromStorage, saveModeSetToStorage } from "@/models/ModeSet";
+import { 
+  FaRedo, 
+  FaExclamationTriangle, 
+  FaCertificate, 
+  FaShare, 
+  FaArrowRight 
+} from "react-icons/fa";
 
 export default function HomePage() {
   const [text, setText] = useState("");
@@ -805,20 +812,63 @@ export default function HomePage() {
             />
           </div>
         ) : (
-          <Result onRestart={handleRestart} />
-        )}
+          <div className="w-full">
+            <Result onRestart={handleRestart} />
+            
+            {/* Action Buttons */}
+            <div className="flex flex-wrap justify-center gap-3 mt-6 mb-6">
+              <button
+                onClick={handleRestart}
+                className="flex items-center px-4 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                title="Repeat the test"
+              >
+                <FaRedo className="mr-2" />
+                Repeat
+              </button>
+              <button
+                onClick={() => {}}
+                className="flex items-center px-4 py-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
+                title="View mistyped words"
+              >
+                <FaExclamationTriangle className="mr-2" />
+                Mistyped
+              </button>
+              <button
+                onClick={() => {}}
+                className="flex items-center px-4 py-1 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors"
+                title="Get certificate"
+              >
+                <FaCertificate className="mr-2" />
+                Certificate
+              </button>
+              <button
+                onClick={() => {}}
+                className="flex items-center px-4 py-1 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors"
+                title="Share your results"
+              >
+                <FaShare className="mr-2" />
+                Share
+              </button>
+              <button
+                onClick={() => {}}
+                className="flex items-center px-4 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                title="Next test"
+              >
+                Next
+                <FaArrowRight className="ml-2" />
+              </button>
+            </div>
 
-        {!isTyping && isTypingDone && (
-          <div className="text-center text-gray-400 mt-4 space-y-2">
-            <p>
-              <span className="font-bold text-blue-400">Tab</span> - restart
-              test
-            </p>
-            <p>
-              <span className="font-bold text-blue-400">Esc</span> or{" "}
-              <span className="font-bold text-blue-400">Ctrl + Shift + P</span>{" "}
-              - Open Command box
-            </p>
+            <div className="text-center text-gray-400 mt-6 space-y-2">
+              <p>
+                <span className="font-bold text-blue-400">Tab</span> - restart test
+              </p>
+              <p>
+                <span className="font-bold text-blue-400">Esc</span> or{" "}
+                <span className="font-bold text-blue-400">Ctrl + Shift + P</span>{" "}
+                - Open Command box
+              </p>
+            </div>
           </div>
         )}
       </main>

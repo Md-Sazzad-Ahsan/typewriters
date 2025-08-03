@@ -141,11 +141,14 @@ export default function Result({ onRestart }) {
             }}
           />
           <Tooltip
-            formatter={(value, name) =>
-              name === "Accuracy"
-                ? [`${parseFloat(value).toFixed(1)}%`, name]
-                : [value, name]
-            }
+            formatter={(value, name) => {
+              if (name === "Accuracy") {
+                return [`${parseFloat(value).toFixed(1)}%`, name];
+              } else if (name === "WPM" || name === "Raw WPM") {
+                return [Math.round(parseFloat(value)), name];
+              }
+              return [value, name];
+            }}
             labelFormatter={(label) => `Time: ${label}s`}
             contentStyle={{
               backgroundColor: "#333", // dark background
@@ -160,8 +163,8 @@ export default function Result({ onRestart }) {
             height={40}
             formatter={(value, entry) => {
               const stats = {
-                WPM: `${result.wpm}`,
-                "Raw WPM": `${result.rawWPM}`,
+                WPM: Math.round(result.wpm).toString(),
+                "Raw WPM": Math.round(result.rawWPM).toString(),
                 Accuracy: `${result.accuracy}%`,
               };
 
