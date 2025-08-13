@@ -741,25 +741,17 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen p-4 max-w-7xl mx-auto">
       <Header isTyping={isTyping} />
-      {!isTyping && !isTypingDone && (
+      <div
+        className={`${isTyping || isTypingDone ? "invisible pointer-events-none select-none" : ""}`}
+        aria-hidden={isTyping || isTypingDone}
+      >
         <ModeSelector
           onChange={handleModeChange}
           onModeChange={handleModeChange}
           initialSettings={isHydrated ? typingSettings : undefined}
         />
-      )}
+      </div>
       <main className="flex-grow flex flex-col items-center mt-10 mb-2">
-        {/* {!isTyping && !isTypingDone && (
-          <StatsDisplay
-            wpm={wpm}
-            accuracy={accuracy}
-            time={
-              startTime && endTime
-                ? (endTime.getTime() - startTime.getTime()) / 1000
-                : 0
-            }
-          />
-        )} */}
 
         {!isTypingDone ? (
           <div

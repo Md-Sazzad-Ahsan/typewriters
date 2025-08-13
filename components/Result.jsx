@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { loadModeSetFromStorage } from "@/models/ModeSet";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -23,27 +24,79 @@ export default function Result({ onRestart }) {
   });
 
   useEffect(() => {
-    try {
-      const storedData = localStorage.getItem("typeResult");
-      if (storedData) {
-        const parsedData = JSON.parse(storedData);
-        setData(parsedData);
-        
-        // Calculate overall statistics from the last entry
-        if (parsedData.length > 0) {
-          const lastEntry = parsedData[parsedData.length - 1];
-          setResult({
-            wpm: lastEntry.wpm,
-            rawWPM: lastEntry.rawWPM,
-            accuracy: lastEntry.accuracy,
-            characters: lastEntry.characters,
-            time: lastEntry.time,
-          });
+    const readAndApply = () => {
+      try {
+        const storedData = localStorage.getItem("typeResult");
+        if (!storedData) return;
+        const raw = JSON.parse(storedData);
+
+        // Sanitize: coerce numbers, filter invalid, dedupe by time, sort ascending
+        const numeric = Array.isArray(raw)
+          ? raw
+              .map((d) => ({
+                time: Number(d?.time),
+                wpm: Number(d?.wpm),
+                rawWPM: Number(d?.rawWPM),
+                accuracy: Number(d?.accuracy),
+                characters: Number(d?.characters),
+              }))
+              .filter(
+                (d) =>
+                  Number.isFinite(d.time) &&
+                  d.time >= 0 &&
+                  Number.isFinite(d.wpm) &&
+                  Number.isFinite(d.rawWPM) &&
+                  Number.isFinite(d.accuracy) &&
+                  Number.isFinite(d.characters)
+              )
+          : [];
+
+        const byTime = new Map();
+        for (const d of numeric) {
+          // Keep the last entry for each second
+          byTime.set(d.time, d);
         }
+        const cleaned = Array.from(byTime.values()).sort((a, b) => a.time - b.time);
+
+        if (cleaned.length === 0) return;
+
+        // Normalize/cap final time for Time mode using stored typing settings
+        const modeSet = loadModeSetFromStorage();
+        const last = cleaned[cleaned.length - 1];
+        let finalTime = last.time;
+        if (modeSet?.modeType === "Time" && Number.isFinite(modeSet?.timeLimit)) {
+          // Cap at timeLimit to avoid off-by-one from async cleanup
+          finalTime = Math.min(finalTime, Number(modeSet.timeLimit));
+        }
+
+        setData(cleaned);
+        setResult({
+          wpm: last.wpm,
+          rawWPM: last.rawWPM,
+          accuracy: last.accuracy,
+          characters: last.characters,
+          time: finalTime,
+        });
+      } catch (error) {
+        console.error("Error reading typing results from localStorage:", error);
       }
-    } catch (error) {
-      console.error("Error reading typing results from localStorage:", error);
-    }
+    };
+
+    // Initial read
+    readAndApply();
+    // Re-read shortly after mount to catch TypingArea's unmount write
+    const t = setTimeout(readAndApply, 120);
+
+    // Also listen for storage updates (in case future flows write after mount)
+    const onStorage = (e) => {
+      if (e.key === "typeResult") readAndApply();
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   // Handle Tab key press to restart the test
