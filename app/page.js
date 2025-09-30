@@ -83,7 +83,9 @@ export default function HomePage() {
 
   const [wordList, setWordList] = useState([]);
   const [timeLeft, setTimeLeft] = useState(typingSettings.timeLimit);
-  const [targetWordCount, setTargetWordCount] = useState(null);
+  const [targetWordCount, setTargetWordCount] = useState(
+    getTargetWordCount(typingSettings)
+  );
   const timerRef = useRef(null);
   const inputRef = useRef(null);
   const [resultDetails, setResultDetails] = useState({
@@ -102,6 +104,9 @@ export default function HomePage() {
     const regenerateWords = async () => {
       try {
         const wordCount = getTargetWordCount(typingSettings);
+        console.log('Regenerating words with count:', wordCount, 'from settings:', typingSettings);
+        
+        // Update target word count first
         setTargetWordCount(wordCount);
 
         if (typingSettings.modeType === "Time") {
@@ -118,8 +123,14 @@ export default function HomePage() {
         if (!isMounted) return;
         
         setWordList(newWords); // Update the word list state
-        const selectedWords = generateRandomWords(newWords, wordCount, true);
-        setText(selectedWords.join(" "));
+        
+        // Ensure we generate exactly the target number of words
+        const selectedWords = generateRandomWords(newWords, wordCount, false);
+        console.log('Generated words count:', selectedWords.length, 'target:', wordCount);
+        
+        // Ensure we have exactly the target number of words
+        const finalWords = selectedWords.slice(0, wordCount);
+        setText(finalWords.join(" "));
 
         // Reset test state
         setTypedText("");
@@ -272,26 +283,29 @@ export default function HomePage() {
     };
   }, []);
 
-  // Update time left display when typing starts or settings change
+  // Update the target word count when settings change
   useEffect(() => {
-    if (isTyping && typingSettings.modeType === 'Time') {
-      // Set initial time left to the full time limit
-      setTimeLeft(typingSettings.timeLimit);
-      
-      // Set up the interval to update the time left
-      const interval = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      return () => clearInterval(interval);
+    const newWordCount = getTargetWordCount(typingSettings);
+    console.log('Updating target word count:', newWordCount, 'from settings:', typingSettings);
+    
+    // Only update if the value has actually changed
+    setTargetWordCount(prevCount => {
+      if (prevCount !== newWordCount) {
+        console.log('Word count changed from', prevCount, 'to', newWordCount);
+        return newWordCount;
+      }
+      return prevCount;
+    });
+    
+    // If in Words mode, regenerate the text with the new word count
+    if (typingSettings.modeType === 'Words' && wordList.length > 0) {
+      console.log('Regenerating text with new word count:', newWordCount);
+      const selectedWords = generateRandomWords(wordList, newWordCount, false);
+      const finalWords = selectedWords.slice(0, newWordCount);
+      setText(finalWords.join(" "));
+      setTypedText("");
     }
-  }, [isTyping, typingSettings.modeType, typingSettings.timeLimit]);
+  }, [typingSettings.modeType, typingSettings.wordLimit, typingSettings.timeLimit, wordList]);
 
   // Start or stop timer based on typing state and settings
   useEffect(() => {
